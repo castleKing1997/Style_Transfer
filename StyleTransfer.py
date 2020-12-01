@@ -147,74 +147,73 @@ lambda_s=50
 
 
 for n,p in enumerate(image_paths):
-    if n%6 == 0:
-        print(n)
-        content_img_path = p
-        result=initial_result((1,224,224,3),127.5,20)
+    print(n)
+    content_img_path = p
+    result=initial_result((1,224,224,3),127.5,20)
 
-        content_val=read_img(content_img_path)
-        style_val=read_img(style_img_path)
+    content_val=read_img(content_img_path)
+    style_val=read_img(style_img_path)
 
-        content=tf.placeholder(tf.float32,shape=[1,224,224,3])
-        style=tf.placeholder(tf.float32,shape=[1,224,224,3])
+    content=tf.placeholder(tf.float32,shape=[1,224,224,3])
+    style=tf.placeholder(tf.float32,shape=[1,224,224,3])
 
-        data_dict=np.load(vgg16_npy_path,encoding="latin1",allow_pickle=True).item()
+    data_dict=np.load(vgg16_npy_path,encoding="latin1",allow_pickle=True).item()
 
-        vgg_for_content=VGGNet(data_dict)
-        vgg_for_style=VGGNet(data_dict)
-        vgg_for_result=VGGNet(data_dict)
+    vgg_for_content=VGGNet(data_dict)
+    vgg_for_style=VGGNet(data_dict)
+    vgg_for_result=VGGNet(data_dict)
 
-        vgg_for_content.build(content)
-        vgg_for_style.build(style)
-        vgg_for_result.build(result)
+    vgg_for_content.build(content)
+    vgg_for_style.build(style)
+    vgg_for_result.build(result)
 
-        # 提取哪些层特征
-        # 需要注意的是：内容特征抽取的层数和结果特征抽取的层数必须相同
-        # 风格特征抽取的层数和结果特征抽取的层数必须相同
-        content_features=[vgg_for_content.conv3_2,]
+    # 提取哪些层特征
+    # 需要注意的是：内容特征抽取的层数和结果特征抽取的层数必须相同
+    # 风格特征抽取的层数和结果特征抽取的层数必须相同
+    content_features=[vgg_for_content.conv3_2,]
 
-        result_content_features=[vgg_for_result.conv3_2,]
+    result_content_features=[vgg_for_result.conv3_2,]
 
-        style_features=[vgg_for_style.conv4_1,
-                       vgg_for_style.conv5_1,]
-        style_gram=[gram_matrix(feature) for feature in style_features]
-        
-        result_style_features=[vgg_for_result.conv4_1,
-                           vgg_for_result.conv5_1,]
-        result_style_gram=[gram_matrix(feature) for feature in result_style_features]
+    style_features=[vgg_for_style.conv4_1,
+                   vgg_for_style.conv5_1,]
+    style_gram=[gram_matrix(feature) for feature in style_features]
 
-        content_loss=tf.zeros(1,tf.float32)
-        for c,c_ in zip(content_features,result_content_features):
-            content_loss+=tf.reduce_mean((c-c_)**2,axis=[1,2,3])
+    result_style_features=[vgg_for_result.conv4_1,
+                       vgg_for_result.conv5_1,]
+    result_style_gram=[gram_matrix(feature) for feature in result_style_features]
 
-        style_loss=tf.zeros(1,tf.float32)
-        for s,s_ in zip(style_gram,result_style_gram):
-            style_loss+=0.2*tf.reduce_mean((s-s_)**2,[1,2])
+    content_loss=tf.zeros(1,tf.float32)
+    for c,c_ in zip(content_features,result_content_features):
+        content_loss+=tf.reduce_mean((c-c_)**2,axis=[1,2,3])
 
-        loss=content_loss*lambda_c+style_loss*lambda_s
+    style_loss=tf.zeros(1,tf.float32)
+    for s,s_ in zip(style_gram,result_style_gram):
+        style_loss+=0.2*tf.reduce_mean((s-s_)**2,[1,2])
 
-        train_op=tf.train.AdamOptimizer(learning_rate).minimize(loss)
+    loss=content_loss*lambda_c+style_loss*lambda_s
 
-        init_op = tf.global_variables_initializer()
-        with tf.Session() as sess:
-            sess.run(init_op)
-            for step in range(num_step):
-                loss_value,content_loss_value,style_loss_value,_=                sess.run([loss,content_loss,style_loss,train_op],
-                        feed_dict={
-                            content:content_val,
-                            style:style_val
-                        })
+    train_op=tf.train.AdamOptimizer(learning_rate).minimize(loss)
+
+    init_op = tf.global_variables_initializer()
+    with tf.Session() as sess:
+        sess.run(init_op)
+        for step in range(num_step):
+            loss_value,content_loss_value,style_loss_value,_=                sess.run([loss,content_loss,style_loss,train_op],
+                    feed_dict={
+                        content:content_val,
+                        style:style_val
+                    })
 #                 print('step: %d, loss_value: %8.4f, content_loss: %8.4f, style_loss: %8.4f' % (step+1,
 #                                                                           loss_value[0],
 #                                                                           content_loss_value[0],
 #                                                                           style_loss_value[0]))
-                if step+1 == num_step:
-                    result_img_path=os.path.join(output_dir,'result_%03d_%05d.jpg'%(n,step+1))
-                    result_val=result.eval(sess)[0]
+            if step+1 == num_step:
+                result_img_path=os.path.join(output_dir,'result_%03d_%05d.jpg'%(n,step+1))
+                result_val=result.eval(sess)[0]
 
-                    result_val=np.clip(result_val,0,255)
+                result_val=np.clip(result_val,0,255)
 
-                    img_arr=np.asarray(result_val,np.uint8)
-                    img=Image.fromarray(img_arr)
-                    img.save(result_img_path)
+                img_arr=np.asarray(result_val,np.uint8)
+                img=Image.fromarray(img_arr)
+                img.save(result_img_path)
 
